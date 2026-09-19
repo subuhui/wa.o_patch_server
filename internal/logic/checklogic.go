@@ -133,6 +133,13 @@ func (l *CheckLogic) TrackEvent(req *types.PatchEventReq) error {
 		}
 	}
 
+	var message string
+	if req.Event != nil && req.Event.Message != nil {
+		message = *req.Event.Message
+	}
+	l.Infof("[TrackEvent] app: %s, client: %s, patch: %d, type: %s, message: %s",
+		appID, clientID, patchNumber, eventType, message)
+
 	event := db.PatchEvent{
 		AppID:       appID,
 		ClientID:    clientID,

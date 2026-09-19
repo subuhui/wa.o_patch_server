@@ -29,23 +29,24 @@ func NewReleaseLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ReleaseLo
 	}
 }
 
-func (l *ReleaseLogic) formatRelease(r *db.Release) types.ReleaseResp {
+func (l *ReleaseLogic) formatRelease(r *db.Release, platforms []string) types.ReleaseResp {
 	var flutterVersion *string
 	if r.FlutterVersion != "" {
 		flutterVersion = &r.FlutterVersion
 	}
+	statuses := make(map[string]string, len(platforms))
+	for _, platform := range platforms {
+		statuses[platform] = r.Status
+	}
 	return types.ReleaseResp{
-		ID:              r.ID,
-		AppID:           r.AppID,
-		Version:         r.Version,
-		FlutterRevision: r.FlutterRevision,
-		FlutterVersion:  flutterVersion,
-		PlatformStatuses: map[string]string{
-			"android": r.Status,
-			"ios":     r.Status,
-		},
-		CreatedAt: r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: r.UpdatedAt.Format(time.RFC3339),
+		ID:               r.ID,
+		AppID:            r.AppID,
+		Version:          r.Version,
+		FlutterRevision:  r.FlutterRevision,
+		FlutterVersion:   flutterVersion,
+		PlatformStatuses: statuses,
+		CreatedAt:        r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        r.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -55,9 +56,25 @@ func (l *ReleaseLogic) GetReleases(appID string) (*types.GetReleasesResp, error)
 		return nil, err
 	}
 
+	platforms := make(map[uint][]string)
+	if len(releases) > 0 {
+		ids := make([]uint, 0, len(releases))
+		for _, release := range releases {
+			ids = append(ids, release.ID)
+		}
+		var artifacts []db.ReleaseArtifact
+		if err := l.svcCtx.DB.Select("DISTINCT release_id, platform").
+			Where("release_id IN ?", ids).Find(&artifacts).Error; err != nil {
+			return nil, err
+		}
+		for _, artifact := range artifacts {
+			platforms[artifact.ReleaseID] = append(platforms[artifact.ReleaseID], artifact.Platform)
+		}
+	}
+
 	result := make([]types.ReleaseResp, 0, len(releases))
 	for _, r := range releases {
-		result = append(result, l.formatRelease(&r))
+		result = append(result, l.formatRelease(&r, platforms[r.ID]))
 	}
 	return &types.GetReleasesResp{Releases: result}, nil
 }
@@ -79,7 +96,7 @@ func (l *ReleaseLogic) CreateRelease(req *types.CreateReleaseReq) (*types.Create
 		return nil, err
 	}
 
-	resp := l.formatRelease(&release)
+	resp := l.formatRelease(&release, nil)
 	return &types.CreateReleaseResp{Release: resp}, nil
 }
 

@@ -151,7 +151,7 @@ func TestDraftRequiresCompleteUploadAndExplicitPromotion(t *testing.T) {
 	if patches.Patches[0].Channel == nil || *patches.Patches[0].Channel != "beta" {
 		t.Fatal("wrong channel in patch list")
 	}
-	if err := l.RollbackPatch(id); err != nil {
+	if _, err := l.RollbackPatch(id); err != nil {
 		t.Fatal(err)
 	}
 	resp, err = check.CheckPatch(req)

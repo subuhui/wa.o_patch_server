@@ -205,7 +205,7 @@ type PatchCheckMetadata struct {
 	Number        int    `json:"number"`
 	DownloadURL   string `json:"download_url"`
 	Hash          string `json:"hash"`
-	HashSignature string `json:"hash_signature"`
+	HashSignature string `json:"hash_signature,omitempty"`
 }
 
 type PatchCheckResp struct {

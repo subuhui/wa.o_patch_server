@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"net/url"
 	"strconv"
 	"strings"
@@ -117,17 +118,14 @@ func (l *PatchLogic) UpdatePatch(patchIDStr, status string) error {
 	if status != "rolled_back" {
 		return fmt.Errorf("invalid patch status: %s", status)
 	}
-	return l.RollbackPatch(patchIDStr)
+	_, err := l.RollbackPatch(patchIDStr)
+	return err
 }
 
 func (l *PatchLogic) PromotePatch(appID, patchIDStr string, channelID int) error {
 	var patch db.Patch
 	if err := l.svcCtx.DB.Joins("JOIN releases ON releases.id = patches.release_id").
 		Where("patches.id = ? AND releases.app_id = ?", patchIDStr, appID).First(&patch).Error; err != nil {
-		return err
-	}
-	var channel db.Channel
-	if err := l.svcCtx.DB.Where("id = ? AND app_id = ?", channelID, appID).First(&channel).Error; err != nil {
 		return err
 	}
 	var artifacts []db.PatchArtifact
@@ -149,11 +147,33 @@ func (l *PatchLogic) PromotePatch(appID, patchIDStr string, channelID int) error
 			return fmt.Errorf("patch artifact size mismatch")
 		}
 	}
-	return l.svcCtx.DB.Model(&patch).Updates(map[string]interface{}{"status": "active", "channel_id": channel.ID}).Error
+	// Lock the channel through publication so deletion cannot leave a dangling reference.
+	return l.svcCtx.DB.Transaction(func(tx *gorm.DB) error {
+		var channel db.Channel
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND app_id = ?", channelID, appID).First(&channel).Error; err != nil {
+			return err
+		}
+		return tx.Model(&patch).Updates(map[string]interface{}{"status": "active", "channel_id": channel.ID}).Error
+	})
 }
 
-func (l *PatchLogic) RollbackPatch(patchIDStr string) error {
-	return l.svcCtx.DB.Model(&db.Patch{}).Where("id = ?", patchIDStr).Update("status", "rolled_back").Error
+func (l *PatchLogic) RollbackPatch(patchIDStr string) (bool, error) {
+	result := l.svcCtx.DB.Model(&db.Patch{}).
+		Where("id = ? AND status <> ?", patchIDStr, "rolled_back").
+		Update("status", "rolled_back")
+	if result.Error != nil {
+		return false, result.Error
+	}
+	if result.RowsAffected > 0 {
+		return true, nil
+	}
+	// Distinguish an unchanged patch from a missing patch.
+	var patch db.Patch
+	if err := l.svcCtx.DB.First(&patch, "id = ?", patchIDStr).Error; err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (l *PatchLogic) CreatePatchArtifact(appID, patchIDStr, arch, platform, hash, hashSig, podfileLockHash string, size int64) (*types.CreatePatchArtifactResp, error) {
@@ -229,4 +249,37 @@ func (l *PatchLogic) CreatePatchArtifact(appID, patchIDStr, arch, platform, hash
 		URL:          uploadURL,
 		UploadMethod: "multipart",
 	}, nil
+}
+
+// RollforwardPatch restores only a previously published patch, retaining its channel.
+func (l *PatchLogic) RollforwardPatch(appID, releaseID, patchID string) (bool, error) {
+	var patch db.Patch
+	if err := l.svcCtx.DB.Joins("JOIN releases ON releases.id = patches.release_id").
+		Where("patches.id = ? AND patches.release_id = ? AND releases.app_id = ?", patchID, releaseID, appID).
+		First(&patch).Error; err != nil {
+		return false, err
+	}
+	if patch.Status == "active" {
+		return false, nil
+	}
+	if patch.Status != "rolled_back" {
+		return false, fmt.Errorf("only rolled back patches can be restored")
+	}
+	if patch.ChannelID == nil {
+		return false, fmt.Errorf("patch has no channel")
+	}
+	var changed bool
+	err := l.svcCtx.DB.Transaction(func(tx *gorm.DB) error {
+		var channel db.Channel
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND app_id = ?", *patch.ChannelID, appID).First(&channel).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&db.Patch{}).
+			Where("id = ? AND status = ? AND channel_id = ?", patch.ID, "rolled_back", channel.ID).
+			Update("status", "active")
+		changed = result.RowsAffected > 0
+		return result.Error
+	})
+	return changed, err
 }

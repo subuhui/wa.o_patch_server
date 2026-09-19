@@ -103,8 +103,10 @@ func RollbackPatchHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		l := logic.NewPatchLogic(r.Context(), svcCtx)
-		if err := l.RollbackPatch(patchIDStr); err != nil {
+		if changed, err := l.RollbackPatch(patchIDStr); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
+		} else if !changed {
+			w.WriteHeader(http.StatusNotModified)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, map[string]bool{"success": true})
 		}
