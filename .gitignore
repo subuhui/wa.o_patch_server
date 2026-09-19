@@ -1,0 +1,13 @@
+# Local configuration and credentials
+*.yaml
+*.yml
+.env
+.env.*
+keys/
+*.pem
+*.key
+# Runtime artifacts
+bin/
+data/
+*.log
+.DS_Store
