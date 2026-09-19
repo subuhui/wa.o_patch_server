@@ -12,7 +12,7 @@ go build -o bin/shorebird-server ./cmd/server
 go run ./cmd/keygen -out keys
 ```
 
-在本机创建 `etc/shorebird-api.yaml`，填写以下配置。占位符必须替换为实际值；不应将配置和私钥提交到版本库。
+复制示例配置 `cp etc/example.shorebird.api.yaml etc/shorebird-api.yaml`，按以下配置填写。占位符必须替换为实际值；不应将配置和私钥提交到版本库。
 
 ```yaml
 Name: shorebird-api
@@ -39,7 +39,7 @@ Storage:
 
 选择 MinIO 时，将 `Storage.Type` 设为 `minio`，并配置 `Storage.MinIO` 中的 `Endpoint`、`AccessKeyID`、`SecretAccessKey`、`UseSSL`、`Bucket`、`ProxyDownload`。本地存储目录为工作目录下的 `data/storage`。
 
-所有 YAML、私钥、`keys/`、`data/` 和编译产物均已通过 `.gitignore` 排除。
+除 `etc/example.shorebird.api.yaml` 外的所有 YAML、私钥、`keys/`、`data/` 和编译产物均已通过 `.gitignore` 排除。
 
 ## 补丁发布行为
 

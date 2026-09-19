@@ -1,0 +1,38 @@
+# 在仓库根目录复制为 etc/shorebird-api.yaml，并替换占位符后启动：
+# ./bin/shorebird-server -f etc/shorebird-api.yaml
+Name: shorebird-api
+Host: 0.0.0.0
+Port: 8080
+Mode: pro
+Timeout: 60000 # 毫秒
+MaxBytes: 536870912 # 512 MiB
+
+# 客户端可访问的服务地址，用于生成上传、下载和测速链接。
+PublicURL: "https://YOUR_SERVER"
+
+Auth:
+  # CLI 使用的 Bearer Token；不要留空。
+  Token: "REPLACE_WITH_PRIVATE_TOKEN"
+
+Crypto:
+  # 相对路径以启动服务时的工作目录为基准。
+  # 留空关闭自动签名；配置了客户端公钥时必须提供匹配的补丁签名。
+  PrivateKeyPath: "keys/private_key.pem"
+
+Database:
+  Type: mysql
+  DSN: "USER:PASSWORD@tcp(MYSQL_HOST:3306)/DATABASE?charset=utf8mb4&parseTime=True&loc=Local"
+
+Storage:
+  # local 使用工作目录下的 data/storage；切换为 minio 时填写下方配置。
+  Type: local
+  MinIO:
+    Endpoint: "MINIO_HOST:9000"
+    AccessKeyID: "REPLACE_WITH_MINIO_ACCESS_KEY"
+    SecretAccessKey: "REPLACE_WITH_MINIO_SECRET_KEY"
+    UseSSL: false
+    Bucket: "shorebird"
+    # true：客户端通过服务端代理下载；false：直接访问对象存储。
+    ProxyDownload: true
+    # 可选的公开下载根地址，仅在 ProxyDownload 为 false 时使用。
+    PublicDownloadURL: ""

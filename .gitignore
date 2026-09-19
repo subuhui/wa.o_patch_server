@@ -1,6 +1,7 @@
 # Local configuration and credentials
 *.yaml
 *.yml
+!/etc/example.shorebird.api.yaml
 .env
 .env.*
 keys/
