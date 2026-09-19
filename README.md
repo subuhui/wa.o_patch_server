@@ -66,3 +66,7 @@ go vet ./...
 单租户服务不支持跨组织转移应用，转移接口返回 501 和协议兼容的错误 JSON。
 
 测速接口沿用 CLI 的 gcp_download / gcp_upload 路径和 download_url / upload_url 字段，但实际测试 PublicURL 指向的私有服务器，不访问 GCP 或 MinIO。获取地址需要认证，生成的地址带有签名、有效期为 5 分钟，仅适用于签发它的服务进程，进程重启后失效。多副本部署需要会话粘滞。下载返回 16,000,000 字节；上传接收 multipart file 中的 5,000,000 字节，消费后返回 204，不保存文件。
+
+## 开源协议
+
+本项目采用 [MIT License](LICENSE)，版权所有 © 2026 subuhui。
