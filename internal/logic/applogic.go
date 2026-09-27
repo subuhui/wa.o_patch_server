@@ -38,6 +38,7 @@ func (l *AppLogic) GetApps() (*types.GetAppsResp, error) {
 		var latestPatch db.Patch
 		var latestVersion *string
 		var latestPatchNum *int
+		var patchCount int64
 
 		if err := l.svcCtx.DB.Where("app_id = ? AND status = 'active'", app.ID).Order("id DESC").First(&latestRel).Error; err == nil {
 			latestVersion = &latestRel.Version
@@ -45,12 +46,19 @@ func (l *AppLogic) GetApps() (*types.GetAppsResp, error) {
 				latestPatchNum = &latestPatch.Number
 			}
 		}
+		if err := l.svcCtx.DB.Model(&db.Patch{}).
+			Joins("JOIN releases ON releases.id = patches.release_id").
+			Where("releases.app_id = ? AND patches.status <> ?", app.ID, "draft").
+			Count(&patchCount).Error; err != nil {
+			return nil, err
+		}
 
 		result = append(result, types.AppMetadataResp{
 			AppID:                app.ID,
 			DisplayName:          app.DisplayName,
 			LatestReleaseVersion: latestVersion,
 			LatestPatchNumber:    latestPatchNum,
+			PatchCount:           patchCount,
 			CreatedAt:            app.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:            app.UpdatedAt.Format(time.RFC3339),
 			Platforms:            []string{"android", "ios"},

@@ -1,7 +1,5 @@
 package types
 
-
-
 // User types
 type UserResp struct {
 	ID                    uint    `json:"id"`
@@ -29,6 +27,7 @@ type AppMetadataResp struct {
 	DisplayName          string   `json:"display_name"`
 	LatestReleaseVersion *string  `json:"latest_release_version"`
 	LatestPatchNumber    *int     `json:"latest_patch_number"`
+	PatchCount           int64    `json:"patch_count"`
 	CreatedAt            string   `json:"created_at"`
 	UpdatedAt            string   `json:"updated_at"`
 	Platforms            []string `json:"platforms"`

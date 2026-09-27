@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -8,6 +9,16 @@ import (
 
 	"shorebird-server/internal/svc"
 )
+
+func healthHandler(baseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status":   "ok",
+			"base_url": baseURL,
+		})
+	}
+}
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	diagnostics := newDiagnosticsHandler(serverCtx.Config.PublicURL)
@@ -24,6 +35,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"status":"ok"}`))
 			},
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/api/v1/health",
+			Handler: healthHandler(serverCtx.Config.PublicURL),
 		},
 		{
 			Method: http.MethodGet,
